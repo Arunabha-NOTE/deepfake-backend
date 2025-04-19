@@ -144,6 +144,35 @@ def predict_video():
     }
 
 
+# def extract_faces(video_path, max_faces=30, max_attempts=90):
+#     cap = cv2.VideoCapture(str(video_path))
+#     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+#     extracted_faces = []
+#     attempts = 0
+
+#     try:
+#         while len(extracted_faces) < max_faces and attempts < max_attempts:
+#             frame_idx = random.randint(0, n_frames - 1)  # Select a random frame
+#             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+#             ret, frame = cap.read()
+#             if not ret:
+#                 attempts += 1
+#                 continue
+
+#             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#             face = mtcnn(Image.fromarray(frame_rgb))  # Detect face using MTCNN
+#             if face is not None:
+#                 if isinstance(face, torch.Tensor):
+#                     extracted_faces.append(transforms.ToPILImage()(face))
+#                 else:
+#                     extracted_faces.append(face)
+
+#             attempts += 1
+#     finally:
+#         cap.release()  # Ensure the video file is released
+
+#     return extracted_faces
+
 def extract_faces(video_path, max_faces=30, max_attempts=90):
     cap = cv2.VideoCapture(str(video_path))
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -163,7 +192,13 @@ def extract_faces(video_path, max_faces=30, max_attempts=90):
             face = mtcnn(Image.fromarray(frame_rgb))  # Detect face using MTCNN
             if face is not None:
                 if isinstance(face, torch.Tensor):
-                    extracted_faces.append(transforms.ToPILImage()(face))
+                    # ─── ADDED: undo MTCNN's pre-whitening ((pix-127.5)/128) ─────────
+                    face_unnorm = face * 128 + 127.5
+                    face_unnorm = face_unnorm.clamp(0, 255).byte()
+                    # convert from C×H×W to H×W×C uint8 array
+                    arr = face_unnorm.permute(1, 2, 0).cpu().numpy()
+                    extracted_faces.append(Image.fromarray(arr))
+                    # ────────────────────────────────────────────────────────────────────
                 else:
                     extracted_faces.append(face)
 
@@ -172,3 +207,4 @@ def extract_faces(video_path, max_faces=30, max_attempts=90):
         cap.release()  # Ensure the video file is released
 
     return extracted_faces
+
